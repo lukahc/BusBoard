@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BusBoard.ConsoleApp
+﻿namespace BusBoard.Api
 {
-    internal class Arrival
+    public class Arrival
     {
         public string ExpectedArrival { get; set; }
         public string LineName { get; set; }
