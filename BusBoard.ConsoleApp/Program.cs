@@ -3,77 +3,79 @@ using System.Collections.Generic;
 using System.Net;
 using RestSharp;
 using BusBoard.Api;
+using System.Text.RegularExpressions;
 
 namespace BusBoard.ConsoleApp
 {
     class Program
     {
-        static void Main(string[] args)
+        private static readonly PostcodeApi postcodeApi = new PostcodeApi();
+        private static readonly TflApi tflApi = new TflApi();
+        static void Main()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-            string appKey = "5bc76cf7dd6d40418c4fced56a2bc4ed";
-            Console.WriteLine("Please enter postcode: ");
-            string postcode = Console.ReadLine();
-            var postcodeClient = new RestClient("https://api.postcodes.io/");
+            while (true)
+            {
+                Console.Write("Please enter postcode: ");
+                string postcode = Regex.Replace(Console.ReadLine().ToUpper(), @"\s+", string.Empty);
 
-            var postcodeRequest = new RestRequest("postcodes/{postcode}", Method.Get);
+                Coordinates coordinates = postcodeApi.GetCoordinates(postcode);
+                if (coordinates == null )
+                {
+                    Console.WriteLine("Invalid postcode");
+                    continue;
+                }
 
-            postcodeRequest.AddUrlSegment("postcode", postcode);
+                List<BusStop> busStops = tflApi.GetBusStops(coordinates);
 
-            postcodeRequest.OnBeforeDeserialization = resp => { resp.ContentType = "application/json"; };
-            var postcodeResponse = postcodeClient.Execute<Postcode>(postcodeRequest);
+                if (busStops.Count == 0)
+                {
+                    Console.WriteLine("No bus stops nearby");
+                    continue;
+                }
 
-            var lon = postcodeResponse.Data.Result.Longitude;
-            var lat = postcodeResponse.Data.Result.Latitude;
+                Console.WriteLine("\nPostcode: " + postcode);
+                Console.WriteLine("Displaying arrivals for nearest bus stops\n");
 
-            var tflClient = new RestClient("https://api.tfl.gov.uk/StopPoint");
-
-            var stopRequest = new RestRequest("/", Method.Get)
-                .AddQueryParameter("lon", lon)
-                .AddQueryParameter("lat", lat)
-                .AddQueryParameter("stopTypes", "NaptanPublicBusCoachTram")
-                .AddQueryParameter("app_key", appKey);
-            stopRequest.OnBeforeDeserialization = resp => { resp.ContentType = "application/json"; };
-            var stopResponse = tflClient.Execute<BusStops>(stopRequest);
-            var id = stopResponse.Data.StopPoints[0].NaptanId;
-            var stopName = stopResponse.Data.StopPoints[0].CommonName;
-
-            var arrivalRequest = new RestRequest("/{id}/Arrivals", Method.Get)
-                .AddUrlSegment("id", id)
-                .AddQueryParameter("app_key", appKey);
-            arrivalRequest.OnBeforeDeserialization = resp => { resp.ContentType = "application/json"; };
-            var arrivalResponse = tflClient.Execute<List<Arrival>>(arrivalRequest);
-            var arrivals = arrivalResponse.Data;
-
+                for (int i = 0; i < 4 && i < busStops.Count; i++)
+                {
+                    List<Arrival> arrivals = tflApi.GetArrivals(busStops[i].NaptanId);
+                    string stopName = busStops[i].CommonName;
+                    SortArrivals(arrivals);
+                    Console.WriteLine("Bus Stop: " + stopName);
+                    Console.WriteLine("Next Bus Arrival(s): ");
+                    if (arrivals.Count == 0)
+                    {
+                        Console.WriteLine("None");
+                        continue;
+                    }
+                    for (int j = 0; j < 5 && j < arrivals.Count; j++)
+                    {
+                        Console.WriteLine(arrivals[j].LineName + " to " + arrivals[j].DestinationName + " arriving at " + arrivals[j].Time + " on " + arrivals[j].Date);
+                    }
+                    Console.WriteLine("");
+                }
+            }
+        }
+        public static void SortArrivals(List<Arrival> arrivals)
+        {
             bool sorted = false;
             while (sorted == false)
             {
                 sorted = true;
-                for (int i = 0; i < arrivals.Count-1; i++)
+                for (int i = 0; i < arrivals.Count - 1; i++)
                 {
                     int hourA = Convert.ToInt32(arrivals[i].Time.Substring(0, 2));
                     int minuteA = Convert.ToInt32(arrivals[i].Time.Substring(3, 2));
-                    int hourB = Convert.ToInt32(arrivals[i+1].Time.Substring(0, 2));
-                    int minuteB = Convert.ToInt32(arrivals[i+1].Time.Substring(3, 2));
-                    if ((hourA == hourB&&minuteA>minuteB)||hourA>hourB)
+                    int hourB = Convert.ToInt32(arrivals[i + 1].Time.Substring(0, 2));
+                    int minuteB = Convert.ToInt32(arrivals[i + 1].Time.Substring(3, 2));
+                    if ((hourA == hourB && minuteA > minuteB) || hourA > hourB)
                     {
                         sorted = false;
-                        (arrivals[i+1], arrivals[i]) = (arrivals[i], arrivals[i+1]);
+                        (arrivals[i + 1], arrivals[i]) = (arrivals[i], arrivals[i + 1]);
                     }
                 }
             }
-
-            Console.WriteLine("Postcode: "+postcode);
-            Console.WriteLine("Nearest Bus Stop: "+stopName);
-            Console.WriteLine("Next Bus Arrival(s): ");
-            for (int i = 0; i < 5&&i < arrivals.Count; i++)
-            {
-                Console.WriteLine(arrivals[i].LineName+" to " + arrivals[i].DestinationName+" arriving at " + arrivals[i].Time+" on " + arrivals[i].Date);
-            }
-
-            Console.ReadLine();
-
         }
-
     }
 }
