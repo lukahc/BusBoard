@@ -1,6 +1,8 @@
 ﻿using BusBoard.Api;
 using RestSharp;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
 
 namespace BusBoard.Api
@@ -21,6 +23,7 @@ namespace BusBoard.Api
 
             stopRequest.OnBeforeDeserialization = resp => { resp.ContentType = "application/json"; };
             var busStops = client.Execute<BusStops>(stopRequest).Data.StopPoints;
+            busStops.RemoveAll(x => busStops.IndexOf(x) > 3);
 
             return busStops;
         }
@@ -35,7 +38,29 @@ namespace BusBoard.Api
                 .AddQueryParameter("app_key", appKey);
             arrivalRequest.OnBeforeDeserialization = resp => { resp.ContentType = "application/json"; };
             var arrivals = client.Execute<List<Arrival>>(arrivalRequest).Data;
+            SortArrivals(arrivals);
             return arrivals;
+        }
+        private static void SortArrivals(List<Arrival> arrivals)
+        {
+            bool sorted = false;
+            while (sorted == false)
+            {
+                sorted = true;
+                for (int i = 0; i < arrivals.Count - 1; i++)
+                {
+                    int hourA = Convert.ToInt32(arrivals[i].Time.Substring(0, 2));
+                    int minuteA = Convert.ToInt32(arrivals[i].Time.Substring(3, 2));
+                    int hourB = Convert.ToInt32(arrivals[i + 1].Time.Substring(0, 2));
+                    int minuteB = Convert.ToInt32(arrivals[i + 1].Time.Substring(3, 2));
+                    if ((hourA == hourB && minuteA > minuteB) || hourA > hourB)
+                    {
+                        sorted = false;
+                        (arrivals[i + 1], arrivals[i]) = (arrivals[i], arrivals[i + 1]);
+                    }
+                }
+            }
+            arrivals.RemoveAll(x => arrivals.IndexOf(x)>4);
         }
     }
 }

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
-using RestSharp;
 using BusBoard.Api;
 using System.Text.RegularExpressions;
 
@@ -37,11 +36,10 @@ namespace BusBoard.ConsoleApp
                 Console.WriteLine("\nPostcode: " + postcode);
                 Console.WriteLine("Displaying arrivals for nearest bus stops\n");
 
-                for (int i = 0; i < 4 && i < busStops.Count; i++)
+                foreach (BusStop busStop in busStops)
                 {
-                    List<Arrival> arrivals = tflApi.GetArrivals(busStops[i].NaptanId);
-                    string stopName = busStops[i].CommonName;
-                    SortArrivals(arrivals);
+                    List<Arrival> arrivals = tflApi.GetArrivals(busStop.NaptanId);
+                    string stopName = busStop.CommonName;
                     Console.WriteLine("Bus Stop: " + stopName);
                     Console.WriteLine("Next Bus Arrival(s): ");
                     if (arrivals.Count == 0)
@@ -49,31 +47,11 @@ namespace BusBoard.ConsoleApp
                         Console.WriteLine("None");
                         continue;
                     }
-                    for (int j = 0; j < 5 && j < arrivals.Count; j++)
+                    foreach (Arrival arrival in arrivals)
                     {
-                        Console.WriteLine(arrivals[j].LineName + " to " + arrivals[j].DestinationName + " arriving at " + arrivals[j].Time + " on " + arrivals[j].Date);
+                        Console.WriteLine(arrival.LineName + " to " + arrival.DestinationName + " arriving at " + arrival.Time + " on " + arrival.Date);
                     }
                     Console.WriteLine("");
-                }
-            }
-        }
-        public static void SortArrivals(List<Arrival> arrivals)
-        {
-            bool sorted = false;
-            while (sorted == false)
-            {
-                sorted = true;
-                for (int i = 0; i < arrivals.Count - 1; i++)
-                {
-                    int hourA = Convert.ToInt32(arrivals[i].Time.Substring(0, 2));
-                    int minuteA = Convert.ToInt32(arrivals[i].Time.Substring(3, 2));
-                    int hourB = Convert.ToInt32(arrivals[i + 1].Time.Substring(0, 2));
-                    int minuteB = Convert.ToInt32(arrivals[i + 1].Time.Substring(3, 2));
-                    if ((hourA == hourB && minuteA > minuteB) || hourA > hourB)
-                    {
-                        sorted = false;
-                        (arrivals[i + 1], arrivals[i]) = (arrivals[i], arrivals[i + 1]);
-                    }
                 }
             }
         }

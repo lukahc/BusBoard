@@ -1,6 +1,6 @@
 ﻿@model BusBoard.Web.ViewModels.BusInfo
 @{
-  ViewBag.Title = "Bus Information";
+    ViewBag.Title = "Bus Information";
 }
 
 <h2>BusInfo</h2>
@@ -8,3 +8,14 @@
 <div class="row">
     <p>You entered postcode @Model.PostCode</p>
 </div>
+@foreach (var stop in Model.StopsWithArrivals)
+{
+    <h3>Bus stop: @stop.Key.CommonName</h3>
+
+    foreach (BusBoard.Api.Arrival arrival in stop.Value)
+    {
+        <div class="row">
+            @arrival.LineName to @arrival.DestinationName arriving at @arrival.Time on @arrival.Date
+        </div>
+    }
+}
